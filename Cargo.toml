@@ -5,5 +5,7 @@ edition = "2024"
 
 [dependencies]
 gtk4 = "0.11.3"
+open = "5.3.5"
 webbrowser = "1.2.1"
 wl-clipboard-rs = "0.9.3"
+xdg-utils = "0.4.0"

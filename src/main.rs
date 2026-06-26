@@ -3,7 +3,8 @@ use gtk4::prelude::*;
 use gtk4::{Application, ApplicationWindow, Box as GtkBox, Button, Label, Orientation};
 use std::io::Read;
 use wl_clipboard_rs::paste::{ClipboardType, Error, MimeType, Seat, get_contents};
-
+use open;
+use xdg_utils;
 #[derive(Debug, PartialEq)]
 enum ClipboardAction {
     OpenSlackUser,
@@ -42,6 +43,33 @@ enum ClipboardInfo {
     HexNumber,
     TextInfo, // char,word etc count
 }
+// vibecoded func to check if an app has a uri bound
+fn is_handler_bound(target: &str) -> bool {
+    // 1. Normalize the target. If it looks like a URI scheme (no slash, no x-scheme prefix), convert it.
+    let mime_query = if !target.contains('/') && !target.starts_with("x-scheme-handler/") {
+        // Strip trailing colon or slashes if user passed "https://" instead of "https"
+        let clean_scheme = target.trim_end_matches(':').trim_end_matches('/');
+        format!("x-scheme-handler/{}", clean_scheme)
+    } else {
+        target.to_string()
+    };
+
+    // 2. Query the default application handler
+    match xdg_utils::query_default_app(&mime_query) {
+        Ok(desktop_file) => !desktop_file.trim().is_empty(),
+        Err(_) => false,
+    }
+}
+
+
+fn openURI(url: &str) {
+     match open::that(url) {
+        Ok(_) => println!("Successfully requested system to open: {}", url),
+        Err(e) => eprintln!("Failed to open URI: {}", e),
+    }
+}
+
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let application = Application::builder()
         .application_id("online.sometgirl.cliptools")
@@ -91,7 +119,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     if text.starts_with("@") && text.chars().filter(|c| *c == '@').count() == 2 {
                         actions.push(ClipboardAction::OpenFedi);
                     }
-                    if text.starts_with("@") && text.chars().filter(|c| *c == '@').count() == 1 && text.contains(".") {
+                    if text.starts_with("@")
+                        && text.chars().filter(|c| *c == '@').count() == 1
+                        && text.contains(".")
+                    {
                         actions.push(ClipboardAction::OpenBluesky);
                     }
                     if text.starts_with("tel:") {
@@ -103,7 +134,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                     if text.starts_with("/") {
                         actions.push(ClipboardAction::OpenFile);
-
                     }
                     if text.contains('=')
                         && text.chars().any(|c| c.is_ascii_digit())
@@ -125,14 +155,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                     info.push(ClipboardInfo::TextInfo);
                     container.append(&Label::new(Some(&text)));
+                    let cloned_clip_bc_rust_is_dum = text.clone();
                     if actions.contains(&ClipboardAction::OpenSlackUser) {
                         let oisbtn = Button::with_label("Open In Slack");
                         oisbtn.connect_clicked(move |_| {
-                            let url = format!("https://app.slack.com/team/{}", text);
-                            let _ = webbrowser::open(&url);
+                            let url = format!(
+                                "https://app.slack.com/team/{}",
+                                cloned_clip_bc_rust_is_dum
+                            );
+                            openURI(&url);
                         });
 
                         container.append(&oisbtn);
+                    }
+                    let cloned_clip_bc_rust_is_dum = text.clone();
+                    if actions.contains(&ClipboardAction::OpenDiscordUser) {
+                        let oidbtn = Button::with_label("Open In Discord");
+                        oidbtn.connect_clicked(move |_| {
+                            if is_handler_bound("discord://") {
+                                let url = format!("discord://-/users/{}", cloned_clip_bc_rust_is_dum);
+                                openURI(&url);
+                            }  
+                            else {
+                                let url = format!("https://discord.com/users/{}", cloned_clip_bc_rust_is_dum);
+                                openURI(&url);
+                            }
+                        });
+
+                        container.append(&oidbtn);
                     }
                 } else {
                     container.append(&Label::new(Some("Failed to read clipboard data pipe.")));
