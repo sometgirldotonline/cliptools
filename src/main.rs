@@ -4,6 +4,44 @@ use gtk4::{Application, ApplicationWindow, Box as GtkBox, Button, Label, Orienta
 use std::io::Read;
 use wl_clipboard_rs::paste::{ClipboardType, Error, MimeType, Seat, get_contents};
 
+#[derive(Debug, PartialEq)]
+enum ClipboardAction {
+    OpenSlackUser,
+    OpenDiscordUser,
+    OpenEmail,
+    OpenBluesky,
+    OpenFedi,
+    OpenMatrix,
+    CallPhone,
+    OpenWhatsapp,
+    OpenTelegram,
+    OpenURI,
+    OpenFile,
+    OpenGit,
+    CloneGitRepo,
+    General(GeneralAction),
+}
+#[derive(Debug, PartialEq)]
+enum GeneralAction {
+    Spellcheck,
+    AskOllama,
+    SearchWeb,
+    CopyClean,
+    Translate,
+    QR,
+    Encode,
+    Case,
+    DedupeLines,
+    FindReplace,
+}
+
+#[derive(Debug, PartialEq)]
+enum ClipboardInfo {
+    MathExpression,
+    HexColour,
+    HexNumber,
+    TextInfo, // char,word etc count
+}
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let application = Application::builder()
         .application_id("online.sometgirl.cliptools")
@@ -36,42 +74,58 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if pipe.read_to_end(&mut contents).is_ok() {
                     let text = String::from_utf8_lossy(&contents).into_owned();
                     let mut text_type = "general";
+                    let mut actions: Vec<ClipboardAction> = Vec::new();
+                    let mut info: Vec<ClipboardInfo> = Vec::new();
                     // Figure out contents
                     if (text.len() >= 9 && text.len() <= 11)
                         && (text.starts_with("U") || text.starts_with("W"))
                     {
-                        text_type = "slackUser"
-                    } else if (text.len() >= 17 && text.len() <= 19) && text.parse::<f64>().is_ok()
-                    {
-                        text_type = "discordID"
-                    } else if text.contains("@") {
-                        text_type = "general-fedi;email"
-                    } else if text.starts_with("http") {
-                        text_type = "web-url"
-                    } else if text.starts_with("tel:") {
-                        text_type = "phone"
-                    } else if text.contains("://") {
-                        text_type = "uri"
-                    } else if text.starts_with("/") {
-                        text_type = "file-path"
-                    } else if text.contains('=')
+                        actions.push(ClipboardAction::OpenSlackUser)
+                    }
+                    if (text.len() >= 17 && text.len() <= 19) && text.parse::<f64>().is_ok() {
+                        actions.push(ClipboardAction::OpenDiscordUser)
+                    }
+                    if text.contains("@") && !text.starts_with("@") {
+                        actions.push(ClipboardAction::OpenEmail);
+                    }
+                    if text.starts_with("@") && text.chars().filter(|c| *c == '@').count() == 2 {
+                        actions.push(ClipboardAction::OpenFedi);
+                    }
+                    if text.starts_with("@") && text.chars().filter(|c| *c == '@').count() == 1 && text.contains(".") {
+                        actions.push(ClipboardAction::OpenBluesky);
+                    }
+                    if text.starts_with("tel:") {
+                        actions.push(ClipboardAction::OpenWhatsapp);
+                        actions.push(ClipboardAction::OpenTelegram);
+                    }
+                    if text.contains("://") {
+                        actions.push(ClipboardAction::OpenURI);
+                    }
+                    if text.starts_with("/") {
+                        actions.push(ClipboardAction::OpenFile);
+
+                    }
+                    if text.contains('=')
                         && text.chars().any(|c| c.is_ascii_digit())
                         && text
                             .chars()
                             .all(|c| c.is_ascii_digit() || "+-*/%^().= x, ".contains(c))
                     {
                         // this if statement was made by chatGPT
-                        text_type = "equation";
-                    } else if text.starts_with("0x") {
-                        text_type = "hex"
-                    } else if text.starts_with("git@") {
-                        text_type = "git-ssh"
-                    } else if text.ends_with(".git") {
-                        text_type = "git-repo"
+                        info.push(ClipboardInfo::MathExpression);
                     }
-
+                    if text.starts_with("0x") {
+                        info.push(ClipboardInfo::HexNumber);
+                    }
+                    if text.starts_with("git@") {
+                        actions.push(ClipboardAction::CloneGitRepo);
+                    }
+                    if text.ends_with(".git") {
+                        actions.push(ClipboardAction::CloneGitRepo);
+                    }
+                    info.push(ClipboardInfo::TextInfo);
                     container.append(&Label::new(Some(&text)));
-                    if text_type == "slackUser" {
+                    if actions.contains(&ClipboardAction::OpenSlackUser) {
                         let oisbtn = Button::with_label("Open In Slack");
                         oisbtn.connect_clicked(move |_| {
                             let url = format!("https://app.slack.com/team/{}", text);
