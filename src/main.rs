@@ -1,10 +1,11 @@
-use gtk4::glib::UnicodeType::TitlecaseLetter;
 use gtk4::prelude::*;
 use gtk4::{Application, ApplicationWindow, Box as GtkBox, Button, Label, Orientation};
 use std::io::Read;
 use wl_clipboard_rs::paste::{ClipboardType, Error, MimeType, Seat, get_contents};
 use open;
 use xdg_utils;
+use std::rc::Rc;
+
 #[derive(Debug, PartialEq)]
 enum ClipboardAction {
     OpenSlackUser,
@@ -62,7 +63,7 @@ fn is_handler_bound(target: &str) -> bool {
 }
 
 
-fn openURI(url: &str) {
+fn open_uri(url: &str) {
      match open::that(url) {
         Ok(_) => println!("Successfully requested system to open: {}", url),
         Err(e) => eprintln!("Failed to open URI: {}", e),
@@ -95,13 +96,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         match result {
             Ok((mut pipe, _)) => {
-                let titleLabel = &Label::new(Some("<b>cliptools</b>"));
-                titleLabel.set_markup("<b>cliptools</b>");
-                container.append(titleLabel);
+                let title_label = &Label::new(Some("<b>cliptools</b>"));
+                title_label.set_markup("<b>cliptools</b>");
+                container.append(title_label);
                 let mut contents = vec![];
                 if pipe.read_to_end(&mut contents).is_ok() {
-                    let text = String::from_utf8_lossy(&contents).into_owned();
-                    let mut text_type = "general";
+                    let text = Rc::new(String::from_utf8_lossy(&contents).into_owned());
                     let mut actions: Vec<ClipboardAction> = Vec::new();
                     let mut info: Vec<ClipboardInfo> = Vec::new();
                     // Figure out contents
@@ -113,7 +113,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     if (text.len() >= 17 && text.len() <= 19) && text.parse::<f64>().is_ok() {
                         actions.push(ClipboardAction::OpenDiscordUser)
                     }
-                    if text.contains("@") && !text.starts_with("@") {
+                    if text.contains("@") && !text.starts_with("@")&&!text.contains("://") {
                         actions.push(ClipboardAction::OpenEmail);
                     }
                     if text.starts_with("@") && text.chars().filter(|c| *c == '@').count() == 2 {
@@ -155,35 +155,46 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                     info.push(ClipboardInfo::TextInfo);
                     container.append(&Label::new(Some(&text)));
-                    let cloned_clip_bc_rust_is_dum = text.clone();
-                    if actions.contains(&ClipboardAction::OpenSlackUser) {
-                        let oisbtn = Button::with_label("Open In Slack");
-                        oisbtn.connect_clicked(move |_| {
-                            let url = format!(
-                                "https://app.slack.com/team/{}",
-                                cloned_clip_bc_rust_is_dum
-                            );
-                            openURI(&url);
+                    for action in actions {
+                        let button = Button::with_label(match action {
+                            ClipboardAction::OpenSlackUser => "Open In Slack",
+                            ClipboardAction::OpenDiscordUser => "Open In Discord",
+                            ClipboardAction::OpenEmail => "Open Email",
+                            ClipboardAction::OpenURI => "Open URI",
+                            _ => todo!(),
                         });
+                        container.append(&button);
+                        let text = Rc::clone(&text);
+                        let appq_clone = app.clone();
+                        button.connect_clicked(move |_|{
+                            match action{
+                                ClipboardAction::OpenSlackUser => {
+                                    let url = format!("https://app.slack.com/team/{}", text);
+                                    open_uri(&url);
+                                }
+                                ClipboardAction::OpenDiscordUser => {
+                                    if is_handler_bound("discord://") {
+                                        let url = format!("discord://-/users/{}", text);
+                                        open_uri(&url);
+                                    } else {
+                                        let url = format!("https://discord.com/users/{}", text);
+                                        open_uri(&url);
+                                    }
+                                }
+                                ClipboardAction::OpenEmail => {
+                                    let url = format!("mailto:{}", text);
+                                    open_uri(&url);
+                                }
+                                ClipboardAction::OpenURI => {
+                                    open_uri(&text);
+                                }
+                                _ => todo!(),
 
-                        container.append(&oisbtn);
-                    }
-                    let cloned_clip_bc_rust_is_dum = text.clone();
-                    if actions.contains(&ClipboardAction::OpenDiscordUser) {
-                        let oidbtn = Button::with_label("Open In Discord");
-                        oidbtn.connect_clicked(move |_| {
-                            if is_handler_bound("discord://") {
-                                let url = format!("discord://-/users/{}", cloned_clip_bc_rust_is_dum);
-                                openURI(&url);
-                            }  
-                            else {
-                                let url = format!("https://discord.com/users/{}", cloned_clip_bc_rust_is_dum);
-                                openURI(&url);
                             }
+                            appq_clone.quit();
                         });
-
-                        container.append(&oidbtn);
                     }
+  
                 } else {
                     container.append(&Label::new(Some("Failed to read clipboard data pipe.")));
                 }
