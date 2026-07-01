@@ -411,7 +411,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         actions.push(ClipboardAction::OpenMatrix)
                     }
                     if Regex::new(r"^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?!-)){0,38}[a-zA-Z0-9]\/[a-zA-Z0-9](?:[a-zA-Z0-9._-]*[a-zA-Z0-9])?$").unwrap().is_match(&text){
-                        actions.push(OpenGit)
+                        actions.push(ClipboardAction::OpenGit)
                     }
                     if Regex::new(r"^@[a-zA-Z][a-zA-Z0-9_]{4,31}$")
                         .unwrap()
