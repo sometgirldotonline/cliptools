@@ -3,20 +3,29 @@ work in progress lol
 
 cliptools takes text on your clipboard, and figures out actions that can be taken
 
+also happens to be my first ever rust project! i have quite enjoyed rust and i think for larger projects its going to replace c/c++ and python for me!
+
+# requirements
+wayland linux
+
+# how to use
+`git clone` and run `cargo run`. the binary will end up in `./target/debug/cliptools`
+
 ## Actions 
 - [x] Slack User ID opening
 - [x] Discord User ID opening
   - This in theory can open the desktop app if your client bound the discord:// URI
-- [ ] Opening Emails
+- [x] Opening Emails
 - [ ] Opening Bluesky/ATProto stuff
 - [ ] Opening Fedi handles
-- [ ] Opening Matrix handles
-- [ ] Calling number using phone app of choice (using `tel:`)
-- [ ] Opening number in Whatsapp or Telegram
-- [ ] Opening URIs
+- [x] Opening Matrix handles
+- [x] Calling number using phone app of choice (using `tel:`)
+- [x] Opening number in Whatsapp or Telegram
+- [x] Opening URIs
 - [ ] Opening Files and Folders (in file manager, terminal, and default app)
-- [ ] Opening repos in GH, GitLab etc
-- [ ] Cloning Git Repos
+- [x] Opening repos in Github if you just have the user/repo syntax copied
+  - I plan to add a setting to add more git services to the list
+- [ ] Cloning Git Repos using same syntax as above or if you have the full ssh/https git url
 - [ ] General actions
   - [ ] Spellcheck
   - [ ] Asking text to local Ollama model
