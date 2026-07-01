@@ -9,6 +9,7 @@ use std::io::Read;
 use std::rc::Rc;
 use wl_clipboard_rs::paste::{ClipboardType, Error, MimeType, Seat, get_contents};
 use xdg_utils;
+
 static AREA_CODES: phf::Map<&'static str, i32> = phf::phf_map! {
     "AF" => 93,
     "AL" => 355,
@@ -266,7 +267,6 @@ enum ClipboardAction {
     OpenURI,
     OpenFile,
     OpenGit,
-    CloneGitRepo,
     General(GeneralAction),
 }
 #[derive(Debug, PartialEq)]
@@ -279,7 +279,7 @@ enum GeneralAction {
     QR,
     Encode,
     Case,
-    DedupeLines,
+    ClearBlankLines,
     FindReplace,
 }
 
@@ -407,7 +407,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     {
                         actions.push(ClipboardAction::OpenBluesky);
                     }
-                    if Regex::new(r"@^[a-zA-Z][a-zA-Z0-9_]{4,31}$")
+                    if Regex::new(r"^(?=.{1,255}$)[@#!][a-z0-9._=\-\/]+:(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(?::\d{1,5})?$").unwrap().is_match(&text){
+                        actions.push(ClipboardAction::OpenMatrix)
+                    }
+                    if Regex::new(r"^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?!-)){0,38}[a-zA-Z0-9]\/[a-zA-Z0-9](?:[a-zA-Z0-9._-]*[a-zA-Z0-9])?$").unwrap().is_match(&text){
+                        actions.push(OpenGit)
+                    }
+                    if Regex::new(r"^@[a-zA-Z][a-zA-Z0-9_]{4,31}$")
                         .unwrap()
                         .is_match(&text)
                     {
@@ -448,13 +454,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     if text.starts_with("0x") {
                         info.push(ClipboardInfo::HexNumber);
                     }
-                    if text.starts_with("git@") {
-                        actions.push(ClipboardAction::CloneGitRepo);
-                    }
-                    if text.ends_with(".git") {
-                        actions.push(ClipboardAction::CloneGitRepo);
-                    }
                     info.push(ClipboardInfo::TextInfo);
+                    // add the general actions the lazy way
+                    actions.push(ClipboardAction::General(GeneralAction::AskOllama));
+                    actions.push(ClipboardAction::General(GeneralAction::Case));
+                    actions.push(ClipboardAction::General(GeneralAction::ClearBlankLines));
+                    actions.push(ClipboardAction::General(GeneralAction::CopyClean));
+                    actions.push(ClipboardAction::General(GeneralAction::Encode));
+                    actions.push(ClipboardAction::General(GeneralAction::FindReplace));
+                    actions.push(ClipboardAction::General(GeneralAction::QR));
+                    actions.push(ClipboardAction::General(GeneralAction::SearchWeb));
+                    actions.push(ClipboardAction::General(GeneralAction::Spellcheck));
+                    actions.push(ClipboardAction::General(GeneralAction::Translate));
                     container.append(&Label::new(Some(&text)));
                     for action in actions {
                         let button = Button::with_label(match action {
@@ -468,6 +479,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             ClipboardAction::OpenBluesky => "Open Bluesky Profile",
                             ClipboardAction::OpenFile => "Open File",
                             ClipboardAction::OpenPhone => "Open In Telephony App",
+                            ClipboardAction::OpenMatrix => "Open in Matrix",
+                            ClipboardAction::OpenGit => "Open Github Repository",
+                            ClipboardAction::General(GeneralAction::AskOllama) => "Ask to Ollama Model",
+                            ClipboardAction::General(GeneralAction::Case) => "Adjust Case",
+                            ClipboardAction::General(GeneralAction::CopyClean) => "Clean and Copy",
+                            ClipboardAction::General(GeneralAction::ClearBlankLines) => "Clear Blank Lines",
+                            ClipboardAction::General(GeneralAction::Encode) => "Encode",
+                            ClipboardAction::General(GeneralAction::FindReplace) => "Find/Replace",
+                            ClipboardAction::General(GeneralAction::QR) => "Make QR Code",
+                            ClipboardAction::General(GeneralAction::SearchWeb) => "Search Web",
+                            ClipboardAction::General(GeneralAction::Spellcheck) => "Check Spelling",
+                            ClipboardAction::General(GeneralAction::Translate) => "Translate",
                             _ => todo!(),
                         });
                         container.append(&button);
@@ -505,6 +528,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 }
                                 ClipboardAction::OpenWhatsapp => {
                                     let url = format!("https://wa.me/{}", clean_if_num(&text, area_code));
+                                    open_uri(&url);
+                                },
+                                ClipboardAction::OpenGit => {
+                                    let url = format!("https://github.com/{}", text);
                                     open_uri(&url);
                                 }
                                 _ => todo!(),
