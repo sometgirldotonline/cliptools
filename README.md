@@ -6,12 +6,26 @@ cliptools takes text on your clipboard, and figures out actions that can be take
 also happens to be my first ever rust project! i have quite enjoyed rust and i think for larger projects its going to replace c/c++ and python for me!
 
 # requirements
-wayland linux
+wayland linux x86_64
+
+this almost certainly wont work on x11 but i havent tried, the library i use is designed for wayland
+
+also idk if this only works in wlroots or sumn, i use niri and i havent tried anything else
 
 # how to use
 `git clone` and run `cargo run`. the binary will end up in `./target/debug/cliptools`
 
-## Actions 
+you can also grab the binary from releases
+
+to open using a shortcut, use your desktop/window managers options to bind, personally i bind it to alt+c
+
+# things that arent implemented
+any unimplemented actions *may* show a button, but it wont do anything, afaik, i have not tried
+
+
+
+## Actions
+for telephony options, it should accept any phone number, if theres no area code it will add your local one, if the "Open In Telephony App" button doesnt do anything ensure you have some kind of telephony app, like KDE Connect to use your actual phone or a voip client of some kind that uses normal numbers
 - [x] Slack User ID opening
 - [x] Discord User ID opening
   - This in theory can open the desktop app if your client bound the discord:// URI
